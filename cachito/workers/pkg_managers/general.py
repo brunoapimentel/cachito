@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import asyncio
 import collections
 import logging
 import os
@@ -178,28 +179,44 @@ async def async_download_binary_file(
     :param int chunk_size: Chunk size param for Response.content.read()
     :raise NetworkError: If download failed
     """
-    try:
-        log.debug(f"Download started - {tarball_name}")
-        async with session.get(url, auth=auth, raise_for_status=True) as resp:
-            with open(os.path.join(download_dir, tarball_name), "wb") as f:
-                while True:
-                    chunk = await resp.content.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+    retrying = False
+    max_retries = 5
+    retries_history = []
 
-    except Exception as exception:
-        log.error(f"Unsuccessful download: {tarball_name}")
-        # "from None" since we have the exception context in the logs
-        raise NetworkError(
-            (
-                f"Could not download {tarball_name} from {url}. "
-                f"exception_name: {exception.__class__.__name__}, "
-                f"details: {exception}"
-            )
-        ) from None
+    while True:
+        if retrying:
+            sleep_time = ((5 - max_retries) * 5) + 1
+            log.debug(f"Retrying download - {tarball_name} in {sleep_time} seconds")
+            await asyncio.sleep(sleep_time)
+        else:
+            log.debug(f"Download started - {tarball_name}")
+        async with session.get(url, auth=auth) as resp:
+            if resp.status == 200:
+                with open(os.path.join(download_dir, tarball_name), "wb") as f:
+                    while True:
+                        chunk = await resp.content.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
 
-    log.debug(f"Download completed - {tarball_name}")
+                log.debug(f"Download completed - {tarball_name}")
+                break
+
+            else:
+                retrying = True
+                max_retries = max_retries - 1
+                retries_history.append(
+                    {
+                        "status": resp.status,
+                        "reason": resp.reason,
+                    }
+                )
+
+                if max_retries == 0:
+                    log.error(f"Unsuccessful download: {tarball_name}")
+                    raise NetworkError(
+                        (f"Could not download {tarball_name} from {url}. " f"{retries_history}")
+                    )
 
 
 def download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
