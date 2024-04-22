@@ -152,7 +152,7 @@ class Go:
         # lazy evaluation: defer running 'go'
         if not self._release:
             output = self(["version"])
-            log.info(f"Go release: {output}")
+            log.debug(f"Go release: {output}")
             release_pattern = f"go{pkgver.VERSION_PATTERN}"
 
             # packaging.version requires passing the re.VERBOSE|re.IGNORECASE flags [1]
@@ -320,6 +320,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         run_params = {"env": env, "cwd": app_source_path}
 
         go = _select_go_toolchain(app_source_path)
+        log.info(f"Using Go release: {go.release}")
 
         # Collect all the dependency names that are being replaced to later report which
         # dependencies were replaced
