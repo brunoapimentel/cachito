@@ -114,7 +114,7 @@ def test_fetch_gomod_source(
     env_vars = {
         "GO111MODULE": {"value": "on", "kind": "literal"},
         "GOSUMDB": {"value": "off", "kind": "literal"},
-        "GOTOOLCHAIN": {"value": "local", "kind": "literal"},
+        "GOTOOLCHAIN": {"value": "auto", "kind": "literal"},
     }
     sample_env_vars.update(env_vars)
 
